@@ -204,7 +204,8 @@ addLabel('Ground Motion →', platGrp, 0, PLAT_H + 0.35, 0, 'lbl-yel');
 
 /* ────────────────────────────── DC MOTOR ────────────────────────────────── */
 const motorGrp = new THREE.Group();
-motorGrp.position.set(6.5, PLAT_H, 2.5);
+motorGrp.position.set(3.5, PLAT_H, 0); // Directly next to L298N on right
+motorGrp.rotation.y = -Math.PI / 2; // Shaft pointing forward
 platGrp.add(motorGrp);
 
 // Motor body
@@ -225,36 +226,28 @@ shaft.rotation.z = Math.PI / 2;
 shaft.position.set(1.1, 0.5, 0);
 motorGrp.add(shaft);
 
-// Eccentric disc (mass)
+// Rotor Group (to spin around X axis)
+const rotorGrp = new THREE.Group();
+rotorGrp.position.set(1.4, 0.5, 0); // End of shaft
+motorGrp.add(rotorGrp);
+
+// Eccentric disc (mass) offset from center
 const disc = new THREE.Mesh(
   new THREE.CylinderGeometry(0.32, 0.32, 0.2, 16),
   new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.7 })
 );
-disc.position.set(1.45, 0.7, 0.18);
-motorGrp.add(disc);
-
-// Wires from motor
-[[0xff2222], [0x111111]].forEach(([c], i) => {
-  const pts = [
-    new THREE.Vector3(0, 0.5, 0),
-    new THREE.Vector3(-0.5, 0.5, 0),
-    new THREE.Vector3(-2.5 - i * 0.15, 0.5, -1.2),
-    new THREE.Vector3(-4.5 - i * 0.15, 0.5, -1.8),
-  ];
-  const geo = new THREE.TubeGeometry(
-    new THREE.CatmullRomCurve3(pts), 20, 0.04, 6, false
-  );
-  motorGrp.add(new THREE.Mesh(geo, MAT.wire(c)));
-});
+disc.rotation.z = Math.PI / 2; // Face the side
+disc.position.set(0, 0.25, 0); // Offset up from shaft center
+rotorGrp.add(disc);
 
 addLabel('DC Motor', motorGrp, 0, 1.6, 0);
 
 /* ────────────────────────────── ARDUINO ────────────────────────────────── */
 const ardGrp = new THREE.Group();
-ardGrp.position.set(-2, PLAT_H, 1.5);
+ardGrp.position.set(-1.5, PLAT_H, -0.5); // Center left
 platGrp.add(ardGrp);
 
-const ardBoard = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 1.35), MAT.pcbGrn);
+const ardBoard = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 1.5), MAT.pcbGrn);
 ardBoard.position.y = 0.06;
 ardGrp.add(ardBoard);
 
@@ -264,7 +257,7 @@ for (let i = 0; i < 14; i++) {
     new THREE.BoxGeometry(0.06, 0.14, 0.06),
     new THREE.MeshStandardMaterial({ color: 0xddbb00, metalness: 0.9 })
   );
-  pin.position.set(-0.82 + i * 0.12, 0.2, -0.55);
+  pin.position.set(-0.82 + i * 0.12, 0.2, -0.6);
   ardGrp.add(pin);
 }
 for (let i = 0; i < 6; i++) {
@@ -272,7 +265,7 @@ for (let i = 0; i < 6; i++) {
     new THREE.BoxGeometry(0.06, 0.14, 0.06),
     new THREE.MeshStandardMaterial({ color: 0xddbb00, metalness: 0.9 })
   );
-  pin.position.set(0.5 + i * 0.12, 0.2, 0.58);
+  pin.position.set(0.5 + i * 0.12, 0.2, 0.6);
   ardGrp.add(pin);
 }
 
@@ -283,39 +276,46 @@ const led = new THREE.Mesh(
 );
 led.position.set(0.85, 0.18, -0.4);
 ardGrp.add(led);
-
 addLabel('Arduino Uno', ardGrp, 0, 0.7, 0);
 
 /* ────────────────────────────── L298N DRIVER ───────────────────────────── */
 const l298Grp = new THREE.Group();
-l298Grp.position.set(-2, PLAT_H, -0.8);
+l298Grp.position.set(1.5, PLAT_H, -0.5); // Directly beside Arduino's right
 platGrp.add(l298Grp);
 
-const l298Board = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.15, 1.2), MAT.pcbBlue);
+const l298Board = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.15, 1.4), MAT.pcbBlue);
 l298Board.position.y = 0.075;
 l298Grp.add(l298Board);
 
 // Heatsink chip on top
 const chip = new THREE.Mesh(
-  new THREE.BoxGeometry(0.4, 0.25, 0.4),
+  new THREE.BoxGeometry(0.5, 0.35, 0.4),
   MAT.pcbBlk
 );
 chip.position.set(0, 0.28, 0);
 l298Grp.add(chip);
-
 addLabel('L298N Driver', l298Grp, 0, 0.8, 0);
+
+/* ────────────────────────────── BATTERY ────────────────────────────────── */
+const battGrp = new THREE.Group();
+battGrp.position.set(-1.5, PLAT_H, -2.5); // Behind Arduino, back edge
+platGrp.add(battGrp);
+const battMesh = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.6), MAT.pcbBlk);
+battMesh.position.y = 0.4;
+battGrp.add(battMesh);
+addLabel('9V Battery', battGrp, 0, 1.2, 0);
 
 /* ────────────────────────────── LCD DISPLAY ────────────────────────────── */
 const lcdGrp = new THREE.Group();
-lcdGrp.position.set(-5.5, PLAT_H, 0.5);
+lcdGrp.position.set(-3.5, PLAT_H, 3.0); // Front left area
 platGrp.add(lcdGrp);
 
-const lcdBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.75), MAT.lcd);
+const lcdBody = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.9), MAT.lcd);
 lcdBody.position.y = 0.05;
 lcdGrp.add(lcdBody);
 
 const lcdScreen = new THREE.Mesh(
-  new THREE.PlaneGeometry(1.35, 0.5),
+  new THREE.PlaneGeometry(2.0, 0.6),
   MAT.lcdScr
 );
 lcdScreen.rotation.x = -Math.PI / 2;
@@ -324,17 +324,37 @@ lcdGrp.add(lcdScreen);
 addLabel('LCD — SEISMOSIM', lcdGrp, 0, 0.7, 0);
 
 /* ────────────────────────────── JUMPER WIRES ───────────────────────────── */
-const wireColors = [0xff2222, 0x111111, 0xddcc00];
-[
-  [[-2, 0.5, 0.5], [-2, 0.5, -0.3], [-2, 0.5, -0.7]],
-  [[-5.5, 0.5, 0.5]],
-  [[-2.5, 0.5, 1.5], [-3, 0.5, 0.5], [-5.5, 0.5, 0.5]],
-].forEach((pts, wi) => {
+function drawWire(pts, colorHex) {
   const v3pts = pts.map(p => new THREE.Vector3(...p));
-  if (v3pts.length < 2) return;
-  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(v3pts), 16, 0.035, 5, false);
-  platGrp.add(new THREE.Mesh(geo, MAT.wire(wireColors[wi])));
-});
+  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(v3pts), 30, 0.03, 5, false);
+  platGrp.add(new THREE.Mesh(geo, MAT.wire(colorHex)));
+}
+
+// Wire 1 — Power (Red): Battery to Arduino VIN
+drawWire([[-1.7, 0.8, -2.5], [-2.0, 0.8, -1.5], [-2.0, 0.3, -1.0]], 0xff2222);
+
+// Wire 2 — Ground (Black): Battery to Arduino GND, then to L298N GND
+drawWire([[-1.3, 0.8, -2.5], [-1.0, 0.8, -1.5], [-1.0, 0.3, -1.0]], 0x111111);
+drawWire([[-0.9, 0.3, -1.0], [0.0, 0.4, -0.6], [1.0, 0.3, -0.6]], 0x111111);
+
+// Wire 3 — Motor Driver Power (Red): Battery to L298N 12V
+drawWire([[-1.6, 0.7, -2.5], [-0.5, 0.3, -2.0], [1.1, 0.3, -0.8]], 0xff2222);
+
+// Wire 4 & 5 — PWM Control (Yellow & Orange): Arduino D9/D10 to L298N IN1/IN2
+drawWire([[-1.0, 0.3, 0.0], [0.0, 0.4, 0.0], [1.0, 0.3, -0.4]], 0xddcc00); // Yellow
+drawWire([[-1.1, 0.3, 0.0], [-0.2, 0.5, 0.2], [1.1, 0.3, -0.3]], 0xff8800); // Orange
+
+// Wire 6 & 7 — Motor Output (Red & Black): L298N OUT to DC Motor
+drawWire([[2.0, 0.3, -1.0], [2.8, 0.3, -1.0], [3.3, 0.5, -0.5]], 0xff2222); // Red
+drawWire([[2.1, 0.3, -1.0], [2.9, 0.4, -0.8], [3.7, 0.5, -0.5]], 0x111111); // Black
+
+// Wire 8 & 9 — LCD I2C SDA/SCL (Blue & Green): Arduino A4/A5 to LCD
+drawWire([[-2.2, 0.3, 0.0], [-2.8, 0.2, 1.5], [-3.0, 0.2, 2.8]], 0x2266ff); // Blue
+drawWire([[-2.3, 0.3, 0.0], [-2.9, 0.4, 1.5], [-3.1, 0.2, 2.8]], 0x22dd44); // Green
+
+// Wire 10 — LCD Power (Red & Black): Arduino 5V/GND to LCD VCC/GND
+drawWire([[-2.0, 0.3, 0.0], [-2.4, 0.3, 1.5], [-2.6, 0.2, 2.8]], 0xff2222); // Red
+drawWire([[-1.9, 0.3, 0.0], [-2.3, 0.4, 1.5], [-2.5, 0.2, 2.8]], 0x111111); // Black
 
 /* ══════════════════════════════════════════════════════════════════════════════
    BUILDING GENERATOR
@@ -445,8 +465,8 @@ function animate() {
   normBldg.rotation.z = Math.sin(t * (Math.PI * 2) / 1.4) * (4 * Math.PI / 180);
   normGrp.position.x  = -6; // Keep perfectly aligned without translate animation
 
-  // — Eccentric disc spin —
-  disc.rotation.z = t * 16;
+  // — Eccentric disc spin (along X shaft axis) —
+  rotorGrp.rotation.x = t * (Math.PI * 2 / 0.5);
 
   // — Isolated structure: barely floats, mostly still —
   isoGrp.position.x = 6; // Fixed in place, no translate
