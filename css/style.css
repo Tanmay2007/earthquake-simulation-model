@@ -4,11 +4,11 @@
 
 /* ── TOKENS & RESET ──────────────────────────────────────────────────────── */
 :root {
-  --bg:           #090d14;
-  --bg-raised:    #0d1220;
-  --bg-card:      #0f1623;
-  --border:       rgba(255,255,255,0.07);
-  --border-hover: rgba(71,201,255,0.28);
+  --bg:           #040a13;
+  --bg-raised:    #07101f;
+  --bg-card:      #0a1426;
+  --border:       rgba(71,201,255,0.15);
+  --border-hover: rgba(71,201,255,0.6);
   --accent:       #e8ff47;
   --cyan:         #47c9ff;
   --red:          #ff4757;
@@ -189,14 +189,15 @@ body {
   width: 100%;
   height: 62vh;
   min-height: 380px;
-  background: #060c15;
-  border: 1px solid rgba(71,201,255,0.2);
-  border-radius: 6px;
+  background: radial-gradient(circle at center, #0a1426 0%, #03070f 100%);
+  border: 1px solid rgba(71,201,255,0.4);
+  border-radius: 8px;
   overflow: hidden;
   position: relative;
-  box-shadow:
-    0 0 0 1px rgba(71,201,255,0.05),
-    0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: 
+    0 0 20px rgba(71,201,255,0.15),
+    inset 0 0 80px rgba(0,0,0,0.8),
+    0 20px 60px rgba(0,0,0,0.6);
 }
 
 /* Live iframe fills container */
@@ -520,25 +521,38 @@ body {
 
 .overlay-panel {
   flex: 1;
-  background: rgba(15, 22, 35, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--cyan);
-  border-radius: 6px;
-  padding: 16px 20px;
+  background: rgba(6, 12, 23, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(71, 201, 255, 0.3);
+  border-radius: 8px;
+  padding: 24px;
   pointer-events: auto;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow: 
+    0 8px 32px rgba(0,0,0,0.5),
+    inset 0 0 20px rgba(71,201,255,0.05);
   display: flex;
   flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.overlay-panel:hover {
+  transform: translateY(-4px);
+  border-color: rgba(71, 201, 255, 0.8);
+  box-shadow: 
+    0 12px 40px rgba(0,0,0,0.6),
+    0 0 15px rgba(71,201,255,0.2),
+    inset 0 0 30px rgba(71,201,255,0.1);
 }
 
 .overlay-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(71,201,255,0.4);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .overlay-desc {
@@ -598,3 +612,77 @@ body {
   .info-overlay { flex-direction: column; top: auto; bottom: 24px; left: 24px; right: 24px; }
   .overlay-panel { width: 100%; }
 }
+
+@media (max-width: 767px) {
+  body {
+    overflow-y: auto;
+  }
+
+  .content {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .section { 
+    padding: 16px; 
+    height: auto; 
+    flex: none; 
+  }
+
+  #model-viewer {
+    padding-bottom: 20px;
+  }
+
+  .section-title {
+    font-size: 10px;
+    margin-bottom: 16px;
+  }
+
+  .iframe-container {
+    height: 45vh;
+    min-height: 280px;
+    box-shadow: 
+      0 0 10px rgba(71,201,255,0.15),
+      inset 0 0 40px rgba(0,0,0,0.8),
+      0 10px 30px rgba(0,0,0,0.4);
+  }
+
+  .chips-row {
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    font-size: 9px;
+  }
+
+  .info-overlay { 
+    position: static; 
+    flex-direction: column; 
+    gap: 16px; 
+    margin-top: 24px;
+    pointer-events: auto;
+  }
+
+  .overlay-panel { 
+    width: 100%; 
+    padding: 20px;
+  }
+
+  .overlay-title {
+    font-size: 12px;
+  }
+
+  .overlay-desc {
+    font-size: 11px;
+  }
+
+  .overlay-list {
+    grid-template-columns: 1fr;
+    font-size: 11px;
+    gap: 8px;
+  }
+}
+
