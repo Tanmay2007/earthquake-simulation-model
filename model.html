@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeismoSim — 3D Simulation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #090d14; overflow: hidden; }
+    #mount { width: 100vw; height: 100vh; position: relative; }
+
+    /* ── CSS2D Labels ─────────────────────────────────────── */
+    .lbl {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #47c9ff;
+      background: rgba(9,13,20,0.82);
+      border: 1px solid rgba(71,201,255,0.40);
+      border-radius: 3px;
+      padding: 3px 8px;
+      white-space: nowrap;
+      pointer-events: none;
+      text-shadow: 0 0 8px rgba(71,201,255,0.5);
+    }
+    .lbl-red   { color: #ff4757; border-color: rgba(255,71,87,0.45);  text-shadow: 0 0 8px rgba(255,71,87,0.5);   }
+    .lbl-green { color: #5dde5d; border-color: rgba(93,222,93,0.45);  text-shadow: 0 0 8px rgba(93,222,93,0.5);   }
+    .lbl-yel   { color: #e8ff47; border-color: rgba(232,255,71,0.35); text-shadow: 0 0 8px rgba(232,255,71,0.4);  }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three":          "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/":  "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+<div id="mount"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls }   from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RENDERER + SCENE + CAMERA
+══════════════════════════════════════════════════════════════════════════════ */
+const mount = document.getElementById('mount');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+mount.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(innerWidth, innerHeight);
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+mount.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x090d14);
+scene.fog = new THREE.FogExp2(0x090d14, 0.013);
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 400);
+camera.position.set(22, 20, 30);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 2, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.maxPolarAngle = Math.PI * 0.48;
+controls.minDistance = 8;
+controls.maxDistance = 80;
+controls.enablePan = false; // Disable panning to keep pivot fixed
+controls.update();
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   LIGHTING
+══════════════════════════════════════════════════════════════════════════════ */
+scene.add(new THREE.AmbientLight(0xc8d8f0, 0.55));
+
+const sun = new THREE.DirectionalLight(0xfff4e0, 1.1);
+sun.position.set(14, 22, 18);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 80;
+sun.shadow.camera.left = -20;
+sun.shadow.camera.right = 20;
+sun.shadow.camera.top = 20;
+sun.shadow.camera.bottom = -20;
+scene.add(sun);
+
+// Rim
+const rim = new THREE.DirectionalLight(0x47c9ff, 0.35);
+rim.position.set(-18, 12, -10);
+scene.add(rim);
+
+// Arduino power LED warm glow
+const ardGlow = new THREE.PointLight(0xff9944, 1.4, 8);
+ardGlow.position.set(-2.4, 1.4, 1.2);
+scene.add(ardGlow);
+
+// Isolation pad glow
+const isoGlow = new THREE.PointLight(0x5dde5d, 1.2, 7);
+isoGlow.position.set(6, 1.2, -0.5);
+scene.add(isoGlow);
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   GROUND GRID
+══════════════════════════════════════════════════════════════════════════════ */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(120, 120),
+  new THREE.MeshStandardMaterial({ color: 0x090d14, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(100, 60, 0x0d2a4a, 0x0a1f38);
+grid.position.y = 0.01;
+grid.material.opacity = 0.7;
+grid.material.transparent = true;
+scene.add(grid);
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════════════════════════════ */
+function label(text, cssClass = '') {
+  const div = document.createElement('div');
+  div.className = 'lbl ' + cssClass;
+  div.textContent = text;
+  return new CSS2DObject(div);
+}
+function addLabel(text, parent, px, py, pz, cls = '') {
+  const l = label(text, cls);
+  l.position.set(px, py, pz);
+  parent.add(l);
+  return l;
+}
+
+const MAT = {
+  wood:    new THREE.MeshStandardMaterial({ color: 0x2a1d10, roughness: 0.85, metalness: 0.05 }),
+  woodTop: new THREE.MeshStandardMaterial({ color: 0x3a2816, roughness: 0.80 }),
+  metal:   new THREE.MeshStandardMaterial({ color: 0x9ab0c0, metalness: 0.7, roughness: 0.3 }),
+  pcbGrn:  new THREE.MeshStandardMaterial({ color: 0x1e5c28, roughness: 0.5 }),
+  pcbBlue: new THREE.MeshStandardMaterial({ color: 0x102850, roughness: 0.5 }),
+  pcbBlk:  new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 }),
+  lcd:     new THREE.MeshStandardMaterial({ color: 0x0a1a12, emissive: 0x00cc55, emissiveIntensity: 0.25 }),
+  lcdScr:  new THREE.MeshBasicMaterial({ color: 0x22dd88 }),
+  rubber:  new THREE.MeshStandardMaterial({ color: 0x5dde5d, roughness: 0.7, emissive: 0x1a4a1a, emissiveIntensity: 0.4 }),
+  wire:    (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }),
+};
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   EARTHQUAKE GROUP  (everything that shakes)
+══════════════════════════════════════════════════════════════════════════════ */
+const EQ = new THREE.Group();
+scene.add(EQ);
+
+/* ────────────────────────────── PLATFORM ────────────────────────────────── */
+const PLAT_W = 22, PLAT_D = 9, PLAT_H = 0.75;
+const platGrp = new THREE.Group();
+EQ.add(platGrp);
+
+// Main board
+const platMesh = new THREE.Mesh(new THREE.BoxGeometry(PLAT_W, PLAT_H, PLAT_D), MAT.wood);
+platMesh.position.y = PLAT_H / 2;
+platMesh.castShadow = true;
+platMesh.receiveShadow = true;
+platGrp.add(platMesh);
+
+// Top surface slightly lighter
+const platTop = new THREE.Mesh(
+  new THREE.BoxGeometry(PLAT_W, 0.05, PLAT_D),
+  MAT.woodTop
+);
+platTop.position.y = PLAT_H + 0.02;
+platGrp.add(platTop);
+
+// Edge strips (metal)
+const edgeMat = MAT.metal;
+[[PLAT_W, 0.12, 0.08, 0, PLAT_H + 0.04, PLAT_D / 2 ],
+ [PLAT_W, 0.12, 0.08, 0, PLAT_H + 0.04, -PLAT_D / 2],
+ [0.08, 0.12, PLAT_D, PLAT_W / 2, PLAT_H + 0.04, 0 ],
+ [0.08, 0.12, PLAT_D, -PLAT_W / 2, PLAT_H + 0.04, 0 ],
+].forEach(([w, h, d, x, y, z]) => {
+  const e = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), edgeMat);
+  e.position.set(x, y, z);
+  platGrp.add(e);
+});
+
+// Ground motion label
+addLabel('Ground Motion →', platGrp, 0, PLAT_H + 0.35, 0, 'lbl-yel');
+
+/* ────────────────────────────── DC MOTOR ────────────────────────────────── */
+const motorGrp = new THREE.Group();
+motorGrp.position.set(6.5, PLAT_H, 2.5);
+platGrp.add(motorGrp);
+
+// Motor body
+const motorBody = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.5, 0.5, 1.6, 20),
+  new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 })
+);
+motorBody.rotation.z = Math.PI / 2;
+motorBody.position.y = 0.5;
+motorGrp.add(motorBody);
+
+// Shaft
+const shaft = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.08, 0.08, 0.9, 10),
+  MAT.metal
+);
+shaft.rotation.z = Math.PI / 2;
+shaft.position.set(1.1, 0.5, 0);
+motorGrp.add(shaft);
+
+// Eccentric disc (mass)
+const disc = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.32, 0.32, 0.2, 16),
+  new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.7 })
+);
+disc.position.set(1.45, 0.7, 0.18);
+motorGrp.add(disc);
+
+// Wires from motor
+[[0xff2222], [0x111111]].forEach(([c], i) => {
+  const pts = [
+    new THREE.Vector3(0, 0.5, 0),
+    new THREE.Vector3(-0.5, 0.5, 0),
+    new THREE.Vector3(-2.5 - i * 0.15, 0.5, -1.2),
+    new THREE.Vector3(-4.5 - i * 0.15, 0.5, -1.8),
+  ];
+  const geo = new THREE.TubeGeometry(
+    new THREE.CatmullRomCurve3(pts), 20, 0.04, 6, false
+  );
+  motorGrp.add(new THREE.Mesh(geo, MAT.wire(c)));
+});
+
+addLabel('DC Motor', motorGrp, 0, 1.6, 0);
+
+/* ────────────────────────────── ARDUINO ────────────────────────────────── */
+const ardGrp = new THREE.Group();
+ardGrp.position.set(-2, PLAT_H, 1.5);
+platGrp.add(ardGrp);
+
+const ardBoard = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.12, 1.35), MAT.pcbGrn);
+ardBoard.position.y = 0.06;
+ardGrp.add(ardBoard);
+
+// Pin rows
+for (let i = 0; i < 14; i++) {
+  const pin = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.14, 0.06),
+    new THREE.MeshStandardMaterial({ color: 0xddbb00, metalness: 0.9 })
+  );
+  pin.position.set(-0.82 + i * 0.12, 0.2, -0.55);
+  ardGrp.add(pin);
+}
+for (let i = 0; i < 6; i++) {
+  const pin = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.14, 0.06),
+    new THREE.MeshStandardMaterial({ color: 0xddbb00, metalness: 0.9 })
+  );
+  pin.position.set(0.5 + i * 0.12, 0.2, 0.58);
+  ardGrp.add(pin);
+}
+
+// Power LED
+const led = new THREE.Mesh(
+  new THREE.SphereGeometry(0.06, 8, 8),
+  new THREE.MeshBasicMaterial({ color: 0xff6600 })
+);
+led.position.set(0.85, 0.18, -0.4);
+ardGrp.add(led);
+
+addLabel('Arduino Uno', ardGrp, 0, 0.7, 0);
+
+/* ────────────────────────────── L298N DRIVER ───────────────────────────── */
+const l298Grp = new THREE.Group();
+l298Grp.position.set(-2, PLAT_H, -0.8);
+platGrp.add(l298Grp);
+
+const l298Board = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.15, 1.2), MAT.pcbBlue);
+l298Board.position.y = 0.075;
+l298Grp.add(l298Board);
+
+// Heatsink chip on top
+const chip = new THREE.Mesh(
+  new THREE.BoxGeometry(0.4, 0.25, 0.4),
+  MAT.pcbBlk
+);
+chip.position.set(0, 0.28, 0);
+l298Grp.add(chip);
+
+addLabel('L298N Driver', l298Grp, 0, 0.8, 0);
+
+/* ────────────────────────────── LCD DISPLAY ────────────────────────────── */
+const lcdGrp = new THREE.Group();
+lcdGrp.position.set(-5.5, PLAT_H, 0.5);
+platGrp.add(lcdGrp);
+
+const lcdBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.75), MAT.lcd);
+lcdBody.position.y = 0.05;
+lcdGrp.add(lcdBody);
+
+const lcdScreen = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.35, 0.5),
+  MAT.lcdScr
+);
+lcdScreen.rotation.x = -Math.PI / 2;
+lcdScreen.position.y = 0.11;
+lcdGrp.add(lcdScreen);
+addLabel('LCD — SEISMOSIM', lcdGrp, 0, 0.7, 0);
+
+/* ────────────────────────────── JUMPER WIRES ───────────────────────────── */
+const wireColors = [0xff2222, 0x111111, 0xddcc00];
+[
+  [[-2, 0.5, 0.5], [-2, 0.5, -0.3], [-2, 0.5, -0.7]],
+  [[-5.5, 0.5, 0.5]],
+  [[-2.5, 0.5, 1.5], [-3, 0.5, 0.5], [-5.5, 0.5, 0.5]],
+].forEach((pts, wi) => {
+  const v3pts = pts.map(p => new THREE.Vector3(...p));
+  if (v3pts.length < 2) return;
+  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(v3pts), 16, 0.035, 5, false);
+  platGrp.add(new THREE.Mesh(geo, MAT.wire(wireColors[wi])));
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BUILDING GENERATOR
+══════════════════════════════════════════════════════════════════════════════ */
+function makeBuilding(tintColor, showBracing = true) {
+  const grp = new THREE.Group();
+  const colMat = new THREE.MeshStandardMaterial({ color: tintColor, metalness: 0.55, roughness: 0.35 });
+  const floorMat = new THREE.MeshStandardMaterial({ color: tintColor, metalness: 0.3, roughness: 0.5, transparent: true, opacity: 0.85 });
+
+  const W = 3.5, D = 3, COL_H = 2.0, FLOORS = 3;
+  const ox = W / 2 - 0.1, oz = D / 2 - 0.1;
+  const colGeo = new THREE.BoxGeometry(0.15, COL_H, 0.15);
+
+  for (let floor = 0; floor < FLOORS; floor++) {
+    const baseY = floor * COL_H;
+    // 4 × columns
+    [[-ox, -oz], [ox, -oz], [-ox, oz], [ox, oz]].forEach(([cx, cz]) => {
+      const col = new THREE.Mesh(colGeo, colMat);
+      col.position.set(cx, baseY + COL_H / 2, cz);
+      col.castShadow = true;
+      grp.add(col);
+    });
+    // Floor slab
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(W, 0.12, D), floorMat);
+    slab.position.y = baseY + COL_H;
+    slab.castShadow = true;
+    slab.receiveShadow = true;
+    grp.add(slab);
+
+    // X bracing on both faces (Z faces)
+    if (showBracing) {
+      const braceMat = new THREE.LineBasicMaterial({ color: tintColor, transparent: true, opacity: 0.5 });
+      [oz, -oz].forEach(fz => {
+        const geo1 = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-ox, baseY, fz), new THREE.Vector3(ox, baseY + COL_H, fz)
+        ]);
+        const geo2 = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(ox, baseY, fz), new THREE.Vector3(-ox, baseY + COL_H, fz)
+        ]);
+        grp.add(new THREE.Line(geo1, braceMat), new THREE.Line(geo2, braceMat));
+      });
+    }
+  }
+  return grp;
+}
+
+/* ────────────────────────────── NORMAL STRUCTURE ────────────────────────── */
+const normGrp = new THREE.Group();
+normGrp.position.set(-6, PLAT_H + 0.005, -0.5);
+EQ.add(normGrp);                    // child of EQ so it shakes with group
+
+const normBldg = makeBuilding(0xc0c8d8);
+normGrp.add(normBldg);
+
+addLabel('NORMAL', normGrp, 0, 6.8, 0, 'lbl-red');
+addLabel('Normal Structure', normGrp, 0, 7.6, 0, 'lbl-red');
+
+/* ────────────────────────────── ISOLATED STRUCTURE ─────────────────────── */
+const isoGrp = new THREE.Group();
+isoGrp.position.set(6, 0, -0.5);   // NOT child of EQ → won't shake
+scene.add(isoGrp);
+
+// Rubber pads at corners
+const PAD_Y = PLAT_H + 0.005;
+const padGeo = new THREE.CylinderGeometry(0.3, 0.32, 0.35, 16);
+[[-1.5, -1.2], [1.5, -1.2], [-1.5, 1.2], [1.5, 1.2]].forEach(([px, pz]) => {
+  const pad = new THREE.Mesh(padGeo, MAT.rubber);
+  pad.position.set(px, PAD_Y + 0.175, pz);
+  pad.castShadow = true;
+  isoGrp.add(pad);
+});
+
+// "Isolation spring rings" visual stripe
+[[-1.5, -1.2], [1.5, -1.2], [-1.5, 1.2], [1.5, 1.2]].forEach(([px, pz]) => {
+  for (let ri = 0; ri < 3; ri++) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.3, 0.04, 8, 16),
+      new THREE.MeshStandardMaterial({ color: 0x88ee88, emissive: 0x336633, emissiveIntensity: 0.6 })
+    );
+    ring.position.set(px, PAD_Y + 0.12 + ri * 0.09, pz);
+    isoGrp.add(ring);
+  }
+});
+
+const isoBldg = makeBuilding(0xa0c8b0);
+isoBldg.position.set(0, PAD_Y + 0.35, 0);
+isoGrp.add(isoBldg);
+
+addLabel('Isolation Layer', isoGrp, 0, PAD_Y + 0.55, 1.8, 'lbl-green');
+addLabel('ISOLATED', isoGrp, 0, 7.4, 0, 'lbl-green');
+addLabel('Isolated Structure', isoGrp, 0, 8.2, 0, 'lbl-green');
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ANIMATION
+══════════════════════════════════════════════════════════════════════════════ */
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // — Earthquake Group: subtle platform rock, NO translation —
+  EQ.rotation.z = Math.sin(t * (Math.PI * 2) / 0.9) * (0.8 * Math.PI / 180);
+  EQ.position.x = 0;
+  EQ.position.y = 0;
+
+  // — Normal structure: swaying top, base stays perfectly anchored —
+  normBldg.rotation.z = Math.sin(t * (Math.PI * 2) / 1.4) * (4 * Math.PI / 180);
+  normGrp.position.x  = -6; // Keep perfectly aligned without translate animation
+
+  // — Eccentric disc spin —
+  disc.rotation.z = t * 16;
+
+  // — Isolated structure: barely floats, mostly still —
+  isoGrp.position.x = 6; // Fixed in place, no translate
+  isoGrp.position.y = 0; // Fixed in place
+
+  // Subtle isolated building micro-sway
+  isoBldg.rotation.z = Math.sin(t * (Math.PI * 2) / 3) * (0.5 * Math.PI / 180);
+
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   HOVER HIGHLIGHT
+══════════════════════════════════════════════════════════════════════════════ */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let hoveredObj = null;
+const originalColors = new Map();
+
+function storeColor(mesh) {
+  if (!originalColors.has(mesh)) originalColors.set(mesh, mesh.material.color.clone());
+}
+
+renderer.domElement.addEventListener('mousemove', e => {
+  mouse.x =  (e.clientX / innerWidth)  * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const intersects = raycaster.intersectObjects([...EQ.children, ...isoGrp.children], true);
+  const hit = intersects[0]?.object;
+
+  if (hoveredObj && hoveredObj !== hit) {
+    const orig = originalColors.get(hoveredObj);
+    if (orig) hoveredObj.material.color.copy(orig);
+    hoveredObj = null;
+  }
+  if (hit && hit.isMesh && !hit.material.map) {
+    storeColor(hit);
+    hit.material.color.lerp(new THREE.Color(0xffffff), 0.22);
+    hoveredObj = hit;
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RESIZE
+══════════════════════════════════════════════════════════════════════════════ */
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  labelRenderer.setSize(innerWidth, innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
