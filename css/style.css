@@ -140,6 +140,7 @@ body {
   display: flex;
   flex-direction: column;
   border-bottom: none;
+  position: relative;
 }
 
 .section-title {
@@ -502,6 +503,68 @@ body {
   text-align: center;
 }
 
+/* ── INFO OVERLAY ────────────────────────────────────────────────────────── */
+.info-overlay {
+  position: absolute;
+  bottom: 30px;
+  left: 40px;
+  right: 40px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 20px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.overlay-panel {
+  flex: 1;
+  background: rgba(15, 22, 35, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--cyan);
+  border-radius: 6px;
+  padding: 16px 20px;
+  pointer-events: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.overlay-desc {
+  font-family: monospace;
+  font-size: 11px;
+  color: #b8c8e0;
+  line-height: 1.5;
+}
+
+.overlay-list {
+  list-style: none;
+  font-family: monospace;
+  font-size: 11px;
+  color: #b8c8e0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.overlay-list li::before {
+  content: '▪';
+  color: var(--cyan);
+  margin-right: 6px;
+  font-size: 12px;
+}
+
 /* ── SIMPLE CARDS LAYOUT ─────────────────────────────────────────────────── */
 .simple-card {
   min-height: 120px;
@@ -532,4 +595,6 @@ body {
 /* ── RESPONSIVE SAFETY ───────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .section { padding: 24px; }
+  .info-overlay { flex-direction: column; top: auto; bottom: 24px; left: 24px; right: 24px; }
+  .overlay-panel { width: 100%; }
 }
